@@ -2,7 +2,6 @@ bluepy
 cffi
 cryptography
 maturin
-orjson
 PyYAML
 sabctools
 ujson
