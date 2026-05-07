@@ -2,7 +2,7 @@ ARG DISTRO
 ARG DISTROVER
 ARG ARCH
 
-FROM ghcr.io/linuxserver/baseimage-${DISTRO}:${ARCH}-${DISTROVER} AS builder
+FROM ghcr.io/trueforge-org/python:3.14.4 AS builder
 
 ARG DISTRO
 ARG DISTROVER
@@ -61,11 +61,7 @@ RUN \
       zlib-dev; \
   fi && \
   echo "**** Updating pip and building wheels ****" && \
-  if [ "${DISTRO}" = "alpine" ]; then \
-    INDEXDISTRO="${DISTRO}-${DISTROVER}"; \
-  else \
-    INDEXDISTRO="${DISTRO}"; \
-  fi && \
+  INDEXDISTRO=ubuntu-resolute; \
   python3 -m venv /lsiopy && \
   pip install -U pip setuptools wheel cython && \
   mkdir -p /build && \
