@@ -15,37 +15,16 @@ jobs:
       - name: Check for updates and trigger
         run: |
           ALLPACKAGES=$(cat packages.txt)
-          DISTROS=$(cat distros.txt)
-          for DISTRO in ${DISTROS}; do
-            IMAGE=$(echo ${DISTRO} | awk -F'-' '{print $1}')
-            TAG=$(echo ${DISTRO} | awk -F'-' '{print $2}')
-            docker run -d --rm --name ${IMAGE}-${TAG} ghcr.io/linuxserver/baseimage-${IMAGE}:${TAG}
-            docker exec ${IMAGE}-${TAG} bash -c "\
-              if [ -f /usr/bin/apt ]; then \
-                apt-get update && apt-get install -y python3-venv; \
-              else \
-                apk add --no-cache python3; \
-              fi && \
-              mkdir -p /lsiopy && \
-              python3 -m venv /lsiopy && \
-              /lsiopy/bin/pip install -U pip"
-          done
+          VERSION=3.14.4
+          DISTRO=ubuntu-resolute
+          docker run -d --rm --name python-${VERSION} ghcr.io/trueforge-org/python:${VERSION}
+          CPYTHON=$(docker exec python-${VERSION} bash -c "printf \"\$(python3 -V)\" | awk '{print \$2}' | awk 'BEGIN{FS=OFS=\".\"} NF--' | sed 's|\.||g' | sed 's|^|cp|g'")
           for PACKAGE in ${ALLPACKAGES}; do
-            for DISTRO in ${DISTROS}; do
               if echo "${PACKAGES}" | grep -q "${PACKAGE}"; then
                 break
               fi
-              IMAGE=$(echo ${DISTRO} | awk -F'-' '{print $1}')
-              TAG=$(echo ${DISTRO} | awk -F'-' '{print $2}')
-              if [ "${IMAGE}" = "alpine" ]; then
-                OS="${DISTRO}"
-              else
-                OS="${IMAGE}"
-              fi
-              VERSION=$(docker exec ${IMAGE}-${TAG} bash -c "/lsiopy/bin/pip install ${PACKAGE}==0 2>&1 | sed -rn 's|^.*versions:(.*)\).*$|\1|p' | sed 's%[0-9.]*\(a\|b\|rc\|dev\)[0-9]*%%g' | sed 's%,%%g' | awk '{print \$(NF)}'")
-              CPYTHON=$(docker exec ${IMAGE}-${TAG} bash -c "printf \"\$(python3 -V)\" | awk '{print \$2}' | awk 'BEGIN{FS=OFS=\".\"} NF--' | sed 's|\.||g' | sed 's|^|cp|g'")
                 for ARCH in x86_64 aarch64; do
-                  if ! grep -iq "${PACKAGE}-${VERSION}-${CPYTHON}.*${ARCH}.whl" "docs/${OS}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*manylinux.*${ARCH}.whl" "docs/${OS}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*musllinux.*${ARCH}.whl" "docs/${OS}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*abi3.*${ARCH}.whl" "docs/${OS}/index.html"; then
+                  if ! grep -iq "${PACKAGE}-${VERSION}-${CPYTHON}.*${ARCH}.whl" "docs/${DISTRO}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*manylinux.*${ARCH}.whl" "docs/${DISTRO}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*musllinux.*${ARCH}.whl" "docs/${DISTRO}/index.html" && ! grep -iq "${PACKAGE}-${VERSION}.*abi3.*${ARCH}.whl" "docs/${DISTRO}/index.html"; then
                     echo "**** Adding ${PACKAGE}-${VERSION} to build list ****"
                     PACKAGES="${PACKAGE} ${PACKAGES}"
                     break
@@ -56,7 +35,6 @@ jobs:
               if echo "${PACKAGES}" | grep -q "${PACKAGE}"; then
                 break
               fi
-            done
           done
           if [ -n "$PACKAGES" ]; then
             if [ $(curl -s https://ci.linuxserver.io/job/Tools/job/wheelie/lastBuild/api/json | jq -r '.building') == "false" ] && [ $(curl -s https://ci.linuxserver.io/job/Tools/job/wheelieHA/lastBuild/api/json | jq -r '.building') == "false" ] && [ $(curl -s https://ci.linuxserver.io/job/Tools/job/wheelieSCI/lastBuild/api/json | jq -r '.building') == "false" ]; then
